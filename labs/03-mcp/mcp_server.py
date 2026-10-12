@@ -51,14 +51,26 @@ def buscar_estudiante(codigo: str) -> dict[str, Any]:
     return estudiante
 
 
-# TODO 4: agrega la tool consultar_notas siguiendo el modelo de consultar_solicitudes:
-#   - decorador @mcp.tool marcado como de solo lectura (readOnlyHint=True);
-#   - un parámetro codigo de tipo CodigoEstudiante;
-#   - un docstring que diga qué hace y que una nota null significa "aún no registrada"
-#     (el SDK lo convierte en la description que lee el LLM);
-#   - busca al estudiante con buscar_estudiante(codigo) y devuelve un diccionario con
-#     codigo, nombre, notas y promedio_laboratorios (redondeado a 2 decimales; None si no hay notas).
-#   Después ejecuta mcp_client.py: la tool nueva aparece sin cambiar nada en el cliente. ¿Por qué?
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def consultar_notas(codigo: CodigoEstudiante) -> dict[str, Any]:
+    """Consulta las notas registradas de un estudiante y calcula el promedio de laboratorios.
+
+    Una nota con valor null significa que la actividad aún no ha sido registrada o calificada.
+    """
+    estudiante = buscar_estudiante(codigo)
+    notas = estudiante.get("notas", {})
+    laboratorios = notas.get("laboratorios")
+
+    promedio_labs = None
+    if laboratorios:
+        promedio_labs = round(sum(laboratorios) / len(laboratorios), 2)
+
+    return {
+        "codigo": estudiante.get("codigo", codigo),
+        "nombre": estudiante.get("nombre"),
+        "notas": notas,
+        "promedio_laboratorios": promedio_labs,
+    }
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -71,7 +83,10 @@ def consultar_solicitudes(codigo: CodigoEstudiante) -> list[dict[str, Any]]:
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False))
 def solicitar_supletorio(
     codigo: CodigoEstudiante,
-    parcial: Annotated[Literal[1, 2], Field(description="Número del parcial: 1 o 2")],
+    parcial: Annotated[
+        Literal[1, 2, "1", "2"],
+        Field(description="Número del parcial: 1 o 2"),
+    ],
     causa: Annotated[
         Literal["incapacidad médica", "calamidad doméstica", "representación institucional"],
         Field(description="Causa justificada de la inasistencia"),
@@ -81,14 +96,15 @@ def solicitar_supletorio(
 
     Es una ACCIÓN: crea un registro en el sistema académico.
     """
+    parcial_int = int(parcial)  # Normalizamos a entero
     estudiante = buscar_estudiante(codigo)
-    if any(s["codigo"] == codigo and s["parcial"] == parcial for s in SOLICITUDES):
-        raise ToolError(f"Ya existe una solicitud de supletorio del parcial {parcial} para {codigo}.")
+    if any(s["codigo"] == codigo and s["parcial"] == parcial_int for s in SOLICITUDES):
+        raise ToolError(f"Ya existe una solicitud de supletorio del parcial {parcial_int} para {codigo}.")
     solicitud = {
         "radicado": f"SUP-2026-{len(SOLICITUDES) + 1:03d}",
         "codigo": codigo,
         "nombre": estudiante["nombre"],
-        "parcial": parcial,
+        "parcial": parcial_int,
         "causa": causa,
         "estado": "pendiente: adjuntar el soporte por Teams dentro de los tres días hábiles siguientes al parcial",
     }

@@ -70,11 +70,24 @@ def fecha_actual() -> dict[str, str]:
     return {"fecha": today.isoformat(), "dia_semana": DIAS_SEMANA[today.weekday()]}
 
 
-def calcular_nota_final(parcial_1: float, parcial_2: float, laboratorios: float, proyecto: float) -> dict[str, Any]:
-    notas = {"parcial_1": parcial_1, "parcial_2": parcial_2, "laboratorios": laboratorios, "proyecto": proyecto}
+def calcular_nota_final(
+    parcial_1: float, parcial_2: float, laboratorios: float, proyecto: float
+) -> dict[str, Any]:
+    # Coerción explícita para tolerar argumentos enviados como strings por el LLM
+    try:
+        notas = {
+            "parcial_1": float(parcial_1),
+            "parcial_2": float(parcial_2),
+            "laboratorios": float(laboratorios),
+            "proyecto": float(proyecto),
+        }
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"Las notas deben ser valores numéricos válidos: {exc}")
+
     for nombre, nota in notas.items():
         if not 0.0 <= nota <= 5.0:
             raise ValueError(f"{nombre} debe estar entre 0.0 y 5.0 (recibido: {nota})")
+
     final = sum(nota * PESOS[nombre] for nombre, nota in notas.items())
     return {"nota_final": round(final, 2), "aprueba": final >= NOTA_MINIMA, "pesos": PESOS}
 
@@ -92,14 +105,36 @@ LOCAL_TOOLS = [
         calcular_nota_final,
         description="Calcula la nota final del curso (0.0 a 5.0) con los pesos oficiales: "
         "parciales 20 % cada uno, laboratorios 35 % y proyecto 25 %. Indica si aprueba (mínimo 3.0).",
-        # TODO 1: escribe el JSON Schema de los argumentos (hoy está vacío). Antes de completarlo, ejecuta
-        #   tool_calling.py con una pregunta de notas y observa qué argumentos inventa el modelo.
-        #   El esquema debe declarar:
-        #   - un objeto con cuatro propiedades: parcial_1, parcial_2, laboratorios y proyecto;
-        #   - cada una de tipo "number", con "minimum" 0, "maximum" 5 y una "description" breve;
-        #   - las cuatro en "required".
-        #   Usa como guía el esquema de fecha_actual y la firma de calcular_nota_final.
-        parameters={"type": "object", "properties": {}, "required": []},
+        parameters={
+            "type": "object",
+            "properties": {
+                "parcial_1": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "description": "Nota obtenida en el primer parcial (0.0 a 5.0).",
+                },
+                "parcial_2": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "description": "Nota obtenida en el segundo parcial (0.0 a 5.0).",
+                },
+                "laboratorios": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "description": "Nota promedio de los laboratorios (0.0 a 5.0).",
+                },
+                "proyecto": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "description": "Nota del proyecto final del curso (0.0 a 5.0).",
+                },
+            },
+            "required": ["parcial_1", "parcial_2", "laboratorios", "proyecto"],
+        },
     ),
 ]
 

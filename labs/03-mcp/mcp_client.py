@@ -44,16 +44,23 @@ def result_to_text(result: CallToolResult) -> str:
 def to_tool(client: Client, mcp_tool: MCPTool) -> Tool:
     """Adaptador: definición MCP → Tool (la misma clase que usan las tools locales)."""
 
-    # TODO 3: construye y devuelve un Tool equivalente a mcp_tool (mira los campos de Tool en tools.py).
-    #   - name, description y parameters salen de mcp_tool.name, mcp_tool.description (puede ser None)
-    #     y mcp_tool.input_schema (el JSON Schema que generó el servidor).
-    #   - run: una función async que reciba los argumentos, llame a
-    #     await client.call_tool(mcp_tool.name, arguments) y devuelva result_to_text(resultado).
-    #     Defínela aquí dentro, como en local_tool.
-    #   - read_only: True solo si mcp_tool.annotations existe y su read_only_hint es True.
-    #     Si el servidor no lo declara, asume lo más seguro: que la tool tiene efectos.
-    #   - origin: el nombre del servidor, client.server_info.name.
-    raise NotImplementedError("Completa to_tool")
+    async def run(arguments: dict[str, Any] | None = None, **kwargs) -> str:
+        args = arguments if arguments is not None else kwargs
+        resultado = await client.call_tool(mcp_tool.name, args)
+        return result_to_text(resultado)
+
+    read_only = bool(
+        mcp_tool.annotations and mcp_tool.annotations.read_only_hint is True
+    )
+
+    return Tool(
+        name=mcp_tool.name,
+        description=mcp_tool.description or "",
+        parameters=mcp_tool.input_schema,
+        run=run,
+        read_only=read_only,
+        origin=client.server_info.name,
+    )
 
 
 async def load_mcp_tools(client: Client) -> list[Tool]:

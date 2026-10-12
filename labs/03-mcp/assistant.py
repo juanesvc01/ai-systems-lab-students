@@ -57,14 +57,21 @@ class CourseAssistant:
 
         # 2. Ejecutar.
         tool_runs: list[ToolRun] = []
-        # TODO 2: el LLM no recuerda que pidió tools: hay que devolverle su petición y los resultados.
-        #   a. Agrega a messages el turno del asistente con sus tool_calls: first.as_message().
-        #   b. Para cada call de first.tool_calls:
-        #        - ejecútala con self.execute(call) (recuerda await) y guarda el ToolRun en tool_runs;
-        #        - agrega a messages un mensaje con rol "tool":
-        #            {"role": "tool", "tool_call_id": <id de la call>, "content": <resultado del run>}
-        #   ¿Por qué cada resultado debe citar el id de su petición?
-        raise NotImplementedError("Completa el paso 2 de CourseAssistant.answer")
+
+        # a. Agrega a messages el turno del asistente con sus tool_calls solicitadas
+        messages.append(first.as_message())
+
+        # b. Ejecuta cada tool y registra su resultado vinculado al id correspondiente
+        for call in first.tool_calls:
+            run = await self.execute(call)
+            tool_runs.append(run)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": str(run.result),
+                }
+            )
 
         # 3. Responder: una sola ronda; el modelo ya no puede pedir más tools.
         final = self.llm.chat(messages, tools=definitions, allow_tools=False)
@@ -80,10 +87,10 @@ class CourseAssistant:
         except ValueError as exc:
             return ToolRun(call, "error", f"Error: {exc}")
 
-        # TODO 5: generar no es ejecutar. Si la tool NO es de solo lectura (tool.read_only es False),
-        #   pide autorización con await self.confirm(tool, arguments). Si el usuario no la autoriza,
-        #   no la ejecutes: devuelve ToolRun(call, "rechazada", REJECTED).
-        #   Antes de completarlo, pide un supletorio en el chatbot: ¿alguien te preguntó algo?
+        if not tool.read_only:
+            autorizado = await self.confirm(tool, arguments)
+            if not autorizado:
+                return ToolRun(call, "rechazada", REJECTED)
 
         try:
             result = await tool.run(arguments)
