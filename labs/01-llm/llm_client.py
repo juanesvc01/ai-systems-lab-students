@@ -40,21 +40,23 @@ class LLMClient:
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> LLMResponse:
-        # TODO 1: llamar a la API de Chat Completions.
-        #   - Usa self._client.chat.completions.create(...)
-        #   - Parámetros: model, messages, temperature, max_tokens.
-        #     Si temperature/max_tokens son None, usa los valores de self.settings.
-        #   - Si json_mode es True, agrega response_format={"type": "json_object"}.
-        #   - Captura openai.APIError y relánzalo como LLMError
-        #     (la aplicación no debe depender de las excepciones del SDK).
-        #
-        # TODO 2: construir y devolver un LLMResponse a partir de la respuesta:
-        #   - completion.choices[0].message.content  → text
-        #   - completion.model                       → model
-        #   - completion.choices[0].finish_reason    → finish_reason
-        #   - completion.usage.prompt_tokens / completion_tokens
-        raise NotImplementedError("Completa LLMClient.chat")
-
+        try:
+            completion = self._client.chat.completions.create(
+                        model=self.settings.model,
+                        messages=messages,
+                        temperature=temperature if temperature is not None else self.settings.temperature,
+                        max_tokens=max_tokens if max_tokens is not None else self.settings.max_tokens,
+                        response_format={"type": "json_object"} if json_mode is True else {"type": "text"}
+                    )
+            return LLMResponse(
+                text=completion.choices[0].message.content,
+                model=completion.model,
+                finish_reason=completion.choices[0].finish_reason,
+                prompt_tokens=completion.usage.prompt_tokens,
+                completion_tokens=completion.usage.completion_tokens
+            )
+        except openai.APIError as e:
+            raise LLMError(f"Error al comunicarse con el LLM: {e}") from e
 
 if __name__ == "__main__":
     # Prueba de humo: una sola llamada, sin interfaz ni historial.
