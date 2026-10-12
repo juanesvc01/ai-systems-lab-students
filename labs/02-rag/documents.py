@@ -36,14 +36,25 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     Ventanas consecutivas comparten `overlap` palabras, para no cortar una idea
     justo en el borde entre dos fragmentos.
     """
-    # TODO 1: implementa el chunking por ventanas de palabras.
-    #   - Separa el texto en palabras con text.split().
-    #   - Cada ventana empieza `chunk_size - overlap` palabras después de la anterior.
-    #   - Une las palabras de cada ventana con " ".join(...).
-    #   - Detente cuando una ventana llegue al final del texto (sin ventanas repetidas al final).
-    #   - Un texto vacío produce una lista vacía.
-    # Pruébalo con: uv run python labs/02-rag/documents.py
-    raise NotImplementedError("Completa chunk_text")
+    words = text.split()
+    if not words:
+        return []
+
+    step = max(1, chunk_size - overlap)
+    chunks: list[str] = []
+    start = 0
+
+    while start < len(words):
+        chunk_words = words[start : start + chunk_size]
+        chunks.append(" ".join(chunk_words))
+
+        # Si esta ventana ya llegó o superó el final del texto, detenemos
+        if start + chunk_size >= len(words):
+            break
+
+        start += step
+
+    return chunks
 
 
 def chunk_documents(documents: list[Document], chunk_size: int, overlap: int) -> list[Chunk]:
