@@ -83,7 +83,12 @@ def dias_hasta(fecha: str) -> dict[str, Any]:
 
 
 def calcular_nota_final(parcial_1: float, parcial_2: float, laboratorios: float, proyecto: float) -> dict[str, Any]:
-    notas = {"parcial_1": parcial_1, "parcial_2": parcial_2, "laboratorios": laboratorios, "proyecto": proyecto}
+    notas = {
+        "parcial_1": float(parcial_1),
+        "parcial_2": float(parcial_2),
+        "laboratorios": float(laboratorios),
+        "proyecto": float(proyecto),
+    }
     for nombre, nota in notas.items():
         if not 0.0 <= nota <= 5.0:
             raise ValueError(f"{nombre} debe estar entre 0.0 y 5.0 (recibido: {nota})")

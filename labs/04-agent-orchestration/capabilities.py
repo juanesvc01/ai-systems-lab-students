@@ -18,16 +18,35 @@ from tools import Tool
 
 
 def rag_tool(rag: CourseRAG) -> Tool:
-    # TODO 1: convierte la recuperación del Lab 02 en una Tool (mira los campos de Tool en tools.py).
-    #   - name: "buscar_documentos"; origin: "rag"; read_only: True (buscar no modifica nada).
-    #   - description: qué documentos contiene (programa, docente, horarios, evaluación, fechas de
-    #     parciales, políticas, anuncios, preguntas frecuentes) y que devuelve fragmentos numerados.
-    #     Recuerda: el modelo decide cuándo usarla leyendo SOLO esto.
-    #   - parameters: un objeto con una propiedad "consulta" de tipo string (obligatoria), cuya
-    #     descripción pida una pregunta autocontenida, p. ej. "fecha del primer parcial".
-    #   - run: una función async que reciba los argumentos, recupere con rag.retrieve(consulta) y
-    #     devuelva format_context(resultados). Solo recupera: NO llames a rag.answer (¿por qué?).
-    raise NotImplementedError("Completa rag_tool")
+    async def _buscar(args: dict[str, Any]) -> str:
+        consulta = args.get("consulta", "")
+        resultados = rag.retrieve(consulta)
+        return format_context(resultados)
+
+    return Tool(
+        name="buscar_documentos",
+        origin="rag",
+        read_only=True,
+        description=(
+            "Busca información en los documentos oficiales del curso (programa, docente, "
+            "horarios, evaluación, fechas de parciales, políticas, anuncios y preguntas "
+            "frecuentes). Devuelve fragmentos numerados con su fuente."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "consulta": {
+                    "type": "string",
+                    "description": (
+                        "Pregunta o consulta autocontenida para buscar en los documentos, "
+                        "por ejemplo: 'fecha del primer parcial'."
+                    ),
+                }
+            },
+            "required": ["consulta"],
+        },
+        run=_buscar,
+    )
 
 
 async def _demo(question: str) -> None:

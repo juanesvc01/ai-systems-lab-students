@@ -69,16 +69,29 @@ class Orchestrator:
 
         routing = route(self.llm, question)
         ruta = routing.decision.ruta
+        
         # TODO 5: ejecuta el camino de la ruta elegida y construye un OrchestratorAnswer (sin routing).
-        #   - "directa":    response = self.llm.chat(build_direct_messages(history, question))
-        #                   → OrchestratorAnswer(response.text, mode, responses=[response])
-        #   - "documentos": rag_answer = self.rag.answer(question, history)   (el pipeline del Lab 02)
-        #                   → incluye sources: los nombres de archivo (result.chunk.source) de
-        #                     rag_answer.sources, sin repetir y ordenados; responses=[rag_answer.response]
-        #   - "acciones":   self._from_agent(await self.actions_agent.run(question, history), mode)
-        #   Después: answer.routing = routing, y agrega routing.response AL INICIO de answer.responses
-        #   (la clasificación también fue una llamada al LLM). Devuelve answer.
-        raise NotImplementedError("Completa el despacho del modo router")
+        if ruta == "directa":
+            response = self.llm.chat(build_direct_messages(history, question))
+            answer = OrchestratorAnswer(response.text, mode, responses=[response])
+        elif ruta == "documentos":
+            rag_answer = self.rag.answer(question, history)
+            sources = sorted(list({src.chunk.source for src in rag_answer.sources}))
+            answer = OrchestratorAnswer(
+                text=rag_answer.text,
+                mode=mode,
+                sources=sources,
+                responses=[rag_answer.response],
+            )
+        elif ruta == "acciones":
+            agent_answer = await self.actions_agent.run(question, history)
+            answer = self._from_agent(agent_answer, mode)
+        else:
+            raise ValueError(f"Ruta desconocida: {ruta}")
+
+        answer.routing = routing
+        answer.responses.insert(0, routing.response)
+        return answer
 
     @staticmethod
     def _from_agent(result: AgentAnswer, mode: Mode) -> OrchestratorAnswer:
